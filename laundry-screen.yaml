@@ -537,7 +537,7 @@ font:
     id: font_extra_large
     size: 60
     glyphs: [Z]
-  - file: "https://github.com/AlmostInteractive/ESP32-S3-Box-3-Voice-Assistant-Sensor-Dock/raw/master/fonts/materialdesignicons-webfont.ttf"
+  - file: "https://github.com/cbulock/esp32-s3-box-3-laundry/raw/master/fonts/materialdesignicons-webfont.ttf"
     id: font_icon_tiny
     size: 30
     glyphs: [
@@ -548,7 +548,7 @@ font:
       "\U000F0375",#minus-box
       "\U000F0416",#plus-box
     ]
-  - file: "https://github.com/AlmostInteractive/ESP32-S3-Box-3-Voice-Assistant-Sensor-Dock/raw/master/fonts/materialdesignicons-webfont.ttf"
+  - file: "https://github.com/cbulock/esp32-s3-box-3-laundry/raw/master/fonts/materialdesignicons-webfont.ttf"
     id: font_icon_small
     size: 45
     glyphs: [
@@ -587,7 +587,7 @@ font:
       "\U000F00AD",#block-helper
       "\U000F01F2",#emoticon-outline
       ]
-  - file: "https://github.com/AlmostInteractive/ESP32-S3-Box-3-Voice-Assistant-Sensor-Dock/raw/master/fonts/materialdesignicons-webfont.ttf"
+  - file: "https://github.com/cbulock/esp32-s3-box-3-laundry/raw/master/fonts/materialdesignicons-webfont.ttf"
     id: font_icon_large
     size: 65
     glyphs: [
