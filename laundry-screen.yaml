@@ -1,5 +1,6 @@
 # Search for "TODO" and adjust as necessary
 substitutions:
+  micro_wake_word_model: okay_nabu  # options: okay_nabu, hey_jarvis, alexa
   noise_suppression_level: '3'
 
   # ----- TODO: Fill these in with the path to your local sound files.  Use HTTP as HTTPS can induce 2+ seconds of lag when playing.
