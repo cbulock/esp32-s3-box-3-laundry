@@ -98,7 +98,7 @@ wifi:
         - script.wait: box_initialize
         - script.execute:
             id: change_app_state
-            nextState: ${APP_STATE_STATUS}
+            nextState: ${APP_STATE_LAUNDRY}
   on_disconnect:
     - component.update: s3_box_lcd
 
@@ -1097,7 +1097,7 @@ binary_sensor:
   - id: ts_laundry_washer_user_button
     platform: touchscreen
     internal: true
-    x_min: 20
+    x_min: 80
     x_max: 150
     y_min: 178
     y_max: 206
@@ -1117,7 +1117,7 @@ binary_sensor:
     platform: touchscreen
     internal: true
     x_min: 170
-    x_max: 300
+    x_max: 240
     y_min: 178
     y_max: 206
     on_press:
