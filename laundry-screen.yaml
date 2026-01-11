@@ -1097,10 +1097,10 @@ binary_sensor:
   - id: ts_laundry_washer_user_button
     platform: touchscreen
     internal: true
-    x_min: 80
-    x_max: 150
-    y_min: 178
-    y_max: 206
+    x_min: 10
+    x_max: 160
+    y_min: 40
+    y_max: 170
     on_press:
       then:
         - if:
@@ -1116,10 +1116,10 @@ binary_sensor:
   - id: ts_laundry_dryer_user_button
     platform: touchscreen
     internal: true
-    x_min: 170
-    x_max: 240
-    y_min: 178
-    y_max: 206
+    x_min: 160
+    x_max: 310
+    y_min: 40
+    y_max: 170
     on_press:
       then:
         - if:
