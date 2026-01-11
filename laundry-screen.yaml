@@ -453,12 +453,6 @@ select:
     on_value:
       - delay: 250ms
       - component.update: s3_box_lcd
-  - platform: homeassistant
-    id: washer_user_select
-    entity_id: input_select.washer_user
-  - platform: homeassistant
-    id: dryer_user_select
-    entity_id: input_select.dryer_user
 
 sensor:
   - platform: homeassistant
@@ -514,6 +508,14 @@ text_sensor:
       address_0:
         name: ESP IP Address 0
       id: ip_addr
+  - platform: homeassistant
+    id: washer_user_state
+    entity_id: input_select.washer_user
+    internal: true
+  - platform: homeassistant
+    id: dryer_user_state
+    entity_id: input_select.dryer_user
+    internal: true
   - platform: homeassistant
     id: washer_machine_state
     entity_id: sensor.washer_machine_state
@@ -1105,7 +1107,10 @@ binary_sensor:
             condition:
               lambda: return id(app_state) == ${APP_STATE_LAUNDRY};
             then:
-              - select.next: washer_user_select
+              - homeassistant.service:
+                  service: input_select.select_next
+                  data:
+                    entity_id: input_select.washer_user
               - component.update: s3_box_lcd
   # Laundry dryer user button
   - id: ts_laundry_dryer_user_button
@@ -1121,7 +1126,10 @@ binary_sensor:
             condition:
               lambda: return id(app_state) == ${APP_STATE_LAUNDRY};
             then:
-              - select.next: dryer_user_select
+              - homeassistant.service:
+                  service: input_select.select_next
+                  data:
+                    entity_id: input_select.dryer_user
               - component.update: s3_box_lcd
   # Touchscreen ir memory button 1
   - id: ts_ir_memory_1_button
@@ -1998,14 +2006,14 @@ display:
                        id(washer_job_state).state,
                        id(washer_completion_time).has_state(),
                        id(washer_completion_time).state,
-                       id(washer_user_select).state);
+                       id(washer_user_state).state);
           draw_machine(right_x,
                        "Dryer",
                        id(dryer_machine_state).state,
                        id(dryer_job_state).state,
                        id(dryer_completion_time).has_state(),
                        id(dryer_completion_time).state,
-                       id(dryer_user_select).state);
+                       id(dryer_user_state).state);
 
       - id: ir_learn_page
         lambda: |-
