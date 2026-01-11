@@ -14,6 +14,33 @@ Features:
 
 NB: This and similar configs seem to have an issue where the touchscreen _sometimes_ fails to initialize (write failure).  To cope with this, I've added a failure detection and failure state which will automatically reboot after 10 seconds until the touchscreen initializes correctly.  Pushing the top-left physical button during the countdown will cancel the reboot.
 
+## Usage (remote include)
+This repo is intended to be included as a package from another ESPHome config. Build, flash, and OTA are handled in the parent project, not here.
+
+Example parent config:
+```
+esphome:
+  name: laundry-screen
+  friendly_name: Laundry Screen
+  name_add_mac_suffix: false
+
+<<: !include includes/common.yaml
+
+packages:
+  laundry_panel: github://cbulock/esp32-s3-box-3-laundry/laundry-screen.yaml@master
+
+voice_assistant:
+  volume_multiplier: 3.0
+
+api:
+  encryption:
+    key: YOUR_API_KEY
+```
+
+Notes:
+- Wi-Fi credentials and API encryption live in the parent config (or its secrets).
+- The YAML here pulls fonts/images from the internet; allow network access during compile or swap to local files.
+
 ## Status Page
 ![status](https://github.com/AlmostInteractive/ESP32-S3-Box-3-Voice-Assistant-Sensor-Dock/assets/3893631/946a43e4-8dcf-4b96-9e07-71952494b283)
 

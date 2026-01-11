@@ -20,13 +20,14 @@ substitutions:
 
   APP_STATE_LOADING: '0'
   APP_STATE_STATUS: '1'
-  APP_STATE_IR_LEARNING: '2'
-  APP_STATE_IR_BLAST: '3'
-  APP_STATE_VA: '4'
-  APP_STATE_SETTINGS: '5'
-  APP_STATE_SCREEN_SAVER: '6'
-  APP_STATE_TOUCHSCREEN_ERROR: '7'
-  NUM_PAGES: '6'
+  APP_STATE_LAUNDRY: '2'
+  APP_STATE_IR_LEARNING: '3'
+  APP_STATE_IR_BLAST: '4'
+  APP_STATE_VA: '5'
+  APP_STATE_SETTINGS: '6'
+  APP_STATE_SCREEN_SAVER: '7'
+  APP_STATE_TOUCHSCREEN_ERROR: '8'
+  NUM_PAGES: '7'
 
   VA_STATE_NOT_READY: '1'
   VA_STATE_IDLE: '2'
@@ -452,8 +453,22 @@ select:
     on_value:
       - delay: 250ms
       - component.update: s3_box_lcd
+  - platform: homeassistant
+    id: washer_user_select
+    entity_id: input_select.washer_user
+  - platform: homeassistant
+    id: dryer_user_select
+    entity_id: input_select.dryer_user
 
 sensor:
+  - platform: homeassistant
+    id: washer_completion_time
+    entity_id: sensor.washer_completion_time
+    internal: true
+  - platform: homeassistant
+    id: dryer_completion_time
+    entity_id: sensor.dryer_completion_time
+    internal: true
   - platform: aht10 
     i2c_id: bus_b
     variant: AHT20
@@ -499,6 +514,22 @@ text_sensor:
       address_0:
         name: ESP IP Address 0
       id: ip_addr
+  - platform: homeassistant
+    id: washer_machine_state
+    entity_id: sensor.washer_machine_state
+    internal: true
+  - platform: homeassistant
+    id: washer_job_state
+    entity_id: sensor.washer_job_state
+    internal: true
+  - platform: homeassistant
+    id: dryer_machine_state
+    entity_id: sensor.dryer_machine_state
+    internal: true
+  - platform: homeassistant
+    id: dryer_job_state
+    entity_id: sensor.dryer_job_state
+    internal: true
   - id: wakeword_location
     platform: template
   - id: va_request
@@ -783,6 +814,9 @@ script:
             case ${APP_STATE_STATUS}:
               id(s3_box_lcd).show_page(id(status_page));
               break;
+            case ${APP_STATE_LAUNDRY}:
+              id(s3_box_lcd).show_page(id(laundry_page));
+              break;
             case ${APP_STATE_IR_LEARNING}:
               id(s3_box_lcd).show_page(id(ir_learn_page));
               break;
@@ -1057,6 +1091,38 @@ binary_sensor:
               - script.execute:
                   id: change_app_state
                   nextState: !lambda 'int next = (id(app_state) + 1) % ${NUM_PAGES}; return next ? next : 1;'
+  # Laundry washer user button
+  - id: ts_laundry_washer_user_button
+    platform: touchscreen
+    internal: true
+    x_min: 20
+    x_max: 150
+    y_min: 178
+    y_max: 206
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: return id(app_state) == ${APP_STATE_LAUNDRY};
+            then:
+              - select.next: washer_user_select
+              - component.update: s3_box_lcd
+  # Laundry dryer user button
+  - id: ts_laundry_dryer_user_button
+    platform: touchscreen
+    internal: true
+    x_min: 170
+    x_max: 300
+    y_min: 178
+    y_max: 206
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: return id(app_state) == ${APP_STATE_LAUNDRY};
+            then:
+              - select.next: dryer_user_select
+              - component.update: s3_box_lcd
   # Touchscreen ir memory button 1
   - id: ts_ir_memory_1_button
     platform: touchscreen
@@ -1455,6 +1521,13 @@ interval:
                   id(reboot).press();
                 }
             - component.update: s3_box_lcd
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            - lambda: return id(app_state) == ${APP_STATE_LAUNDRY};
+          then:
+            - component.update: s3_box_lcd
 
 remote_receiver:
   id: ir_rx
@@ -1806,6 +1879,133 @@ display:
               it.print((it.get_width() / 2) + 1, y, id(font_icon_tiny), yellow, TextAlign::TOP_CENTER, "\U000F009C");
             }
           }
+
+      - id: laundry_page
+        lambda: |-
+          it.fill(Color::BLACK);
+          it.print((it.get_width() / 2), 0, id(font_large), yellow, TextAlign::TOP_CENTER, "- Laundry -");
+
+          // # print nav buttons
+          if (!id(nav_lock)) {
+            it.print(5, (240 - 5), id(font_icon_large), TextAlign::BOTTOM_LEFT, "\U000F004F");
+            it.print((320 - 5), (240 - 5), id(font_icon_large), TextAlign::BOTTOM_RIGHT, "\U000F0056");
+          }
+
+          int card_y = 40;
+          int card_w = 150;
+          int card_h = 170;
+          int left_x = 10;
+          int right_x = 160;
+
+          auto to_lower = [](const std::string &in) {
+            std::string out = in;
+            std::transform(out.begin(), out.end(), out.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            return out;
+          };
+
+          auto is_out_of_order = [](const std::string &s) {
+            return s.find("out") != std::string::npos ||
+                   s.find("error") != std::string::npos ||
+                   s.find("fault") != std::string::npos ||
+                   s.find("offline") != std::string::npos;
+          };
+
+          auto is_running = [](const std::string &s) {
+            return s.find("run") != std::string::npos ||
+                   s.find("cycle") != std::string::npos ||
+                   s.find("active") != std::string::npos ||
+                   s.find("wash") != std::string::npos ||
+                   s.find("dry") != std::string::npos;
+          };
+
+          auto is_available = [](const std::string &s) {
+            return s.find("idle") != std::string::npos ||
+                   s.find("available") != std::string::npos ||
+                   s.find("ready") != std::string::npos ||
+                   s.find("complete") != std::string::npos;
+          };
+
+          auto resolve_status = [&](const std::string &machine_state, const std::string &job_state) {
+            std::string m = to_lower(machine_state);
+            std::string j = to_lower(job_state);
+            if (is_out_of_order(m) || is_out_of_order(j)) {
+              return std::string("out-of-order");
+            }
+            if (is_running(m) || is_running(j)) {
+              return std::string("running");
+            }
+            if (is_available(m) || is_available(j)) {
+              return std::string("available");
+            }
+            return std::string("unknown");
+          };
+
+          auto draw_machine = [&](int x,
+                                  const char *title,
+                                  const std::string &machine_state,
+                                  const std::string &job_state,
+                                  bool has_completion,
+                                  float completion_time,
+                                  const std::string &user) {
+            int y = card_y;
+            it.rectangle(x, y, card_w, card_h, blue_dark);
+
+            it.print(x + (card_w / 2), y + 6, id(font_medium), white, TextAlign::TOP_CENTER, title);
+            y += 36;
+
+            std::string status = resolve_status(machine_state, job_state);
+            auto status_color = white;
+            if (status == "running") {
+              status_color = lime;
+            } else if (status == "available") {
+              status_color = blue_light;
+            } else if (status == "out-of-order") {
+              status_color = red;
+            } else {
+              status_color = yellow;
+            }
+
+            it.print(x + 8, y, id(font_small), white, "Status:");
+            it.print(x + 70, y, id(font_small), status_color, status.c_str());
+            y += 18;
+
+            std::string user_display = user.length() > 0 ? user : "--";
+            it.print(x + 8, y, id(font_small), white, "User:");
+            it.print(x + 50, y, id(font_small), yellow, user_display.c_str());
+            y += 18;
+
+            std::string remaining = "--";
+            if (status == "running" && has_completion && id(ha_time).now().is_valid()) {
+              int remaining_sec = (int)(completion_time - id(ha_time).now().timestamp);
+              if (remaining_sec < 0) {
+                remaining_sec = 0;
+              }
+              int remaining_min = (remaining_sec + 59) / 60;
+              remaining = std::to_string(remaining_min) + "m";
+            }
+            it.print(x + 8, y, id(font_small), white, "Remaining:");
+            it.print(x + 82, y, id(font_small), white, remaining.c_str());
+
+            int btn_y = card_y + card_h - 30;
+            it.filled_rectangle(x + 10, btn_y, card_w - 20, 22, blue_dark);
+            it.print(x + (card_w / 2), btn_y + 4, id(font_small), white, TextAlign::TOP_CENTER, "Tap to change");
+          };
+
+          draw_machine(left_x,
+                       "Washer",
+                       id(washer_machine_state).state,
+                       id(washer_job_state).state,
+                       id(washer_completion_time).has_state(),
+                       id(washer_completion_time).state,
+                       id(washer_user_select).state);
+          draw_machine(right_x,
+                       "Dryer",
+                       id(dryer_machine_state).state,
+                       id(dryer_job_state).state,
+                       id(dryer_completion_time).has_state(),
+                       id(dryer_completion_time).state,
+                       id(dryer_user_select).state);
 
       - id: ir_learn_page
         lambda: |-
