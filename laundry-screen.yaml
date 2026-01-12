@@ -1367,9 +1367,9 @@ binary_sensor:
                           entity_id: input_select.washer_user
                           option: !lambda 'return id(laundry_picker_selected_option).c_str();'
                     - homeassistant.service:
-                        service: logbook.log
+                        service: persistent_notification.create
                         data:
-                          name: "Laundry Screen"
+                          title: "Laundry Screen"
                           message: "Laundry picker OK pressed (washer)"
                   else:
                     - if:
@@ -1392,9 +1392,9 @@ binary_sensor:
                                 entity_id: input_select.dryer_user
                                 option: !lambda 'return id(laundry_picker_selected_option).c_str();'
                           - homeassistant.service:
-                              service: logbook.log
+                              service: persistent_notification.create
                               data:
-                                name: "Laundry Screen"
+                                title: "Laundry Screen"
                                 message: "Laundry picker OK pressed (dryer)"
                         else:
                           - lambda: ESP_LOGW("laundry_picker", "No options available, skipping select.");
