@@ -972,6 +972,41 @@ script:
       - lambda: ESP_LOGD("change_va_state", "%d", nextState);
       - lambda: id(va_state) = nextState;
       - component.update: s3_box_lcd
+  - id: set_laundry_user
+    parameters:
+      machine: int
+      option: std::string
+    then:
+      - wait_until:
+          condition:
+            api.connected
+          timeout: 5s
+      - if:
+          condition:
+            api.connected
+          then:
+            - lambda: |-
+                ESP_LOGD("laundry_picker", "Setting %s user to '%s' (api=%d)",
+                         machine == 0 ? "washer" : "dryer",
+                         option.c_str(),
+                         api::global_api_server->is_connected());
+            - if:
+                condition:
+                  lambda: return machine == 0;
+                then:
+                  - homeassistant.service:
+                      service: input_select.select_option
+                      data:
+                        entity_id: input_select.washer_user
+                        option: !lambda 'return option;'
+                else:
+                  - homeassistant.service:
+                      service: input_select.select_option
+                      data:
+                        entity_id: input_select.dryer_user
+                        option: !lambda 'return option;'
+          else:
+            - lambda: ESP_LOGW("laundry_picker", "Not connected to HA API; cannot set user.");
   - id: save_ir_button
     parameters:
       buttonIndex: int
@@ -1347,57 +1382,31 @@ binary_sensor:
                            api::global_api_server->is_connected());
               - if:
                   condition:
-                    lambda: |-
-                      int count = id(laundry_picker_machine) == 0 ? id(washer_user_options).size() : id(dryer_user_options).size();
-                      return id(laundry_picker_machine) == 0 && count > 0;
+                    lambda: return true;
                   then:
                     - lambda: |-
-                        id(laundry_picker_selected_option) = id(washer_user_options)[id(laundry_picker_index)];
+                        const auto &options = (id(laundry_picker_machine) == 0)
+                          ? id(washer_user_options)
+                          : id(dryer_user_options);
+
+                        if (options.empty()) {
+                          ESP_LOGW("laundry_picker", "No options available, skipping select.");
+                          return;
+                        }
+
+                        id(laundry_picker_selected_option) = options[id(laundry_picker_index)];
                         auto &opt = id(laundry_picker_selected_option);
                         size_t first = opt.find_first_not_of(' ');
                         size_t last = opt.find_last_not_of(' ');
                         if (first != std::string::npos && last != std::string::npos) {
                           opt = opt.substr(first, last - first + 1);
                         }
-                        ESP_LOGD("laundry_picker", "Selecting washer option: %s (len=%d) current=%s",
-                                 opt.c_str(), (int)opt.size(), id(washer_user_state).state.c_str());
-                    - homeassistant.service:
-                        service: input_select.select_option
-                        data:
-                          entity_id: input_select.washer_user
-                          option: !lambda 'return id(laundry_picker_selected_option).c_str();'
-                    - homeassistant.service:
-                        service: persistent_notification.create
-                        data:
-                          title: "Laundry Screen"
-                          message: "Laundry picker OK pressed (washer)"
-                  else:
-                    - if:
-                        condition:
-                          lambda: return id(laundry_picker_machine) == 1 && id(dryer_user_options).size() > 0;
-                        then:
-                          - lambda: |-
-                              id(laundry_picker_selected_option) = id(dryer_user_options)[id(laundry_picker_index)];
-                              auto &opt = id(laundry_picker_selected_option);
-                              size_t first = opt.find_first_not_of(' ');
-                              size_t last = opt.find_last_not_of(' ');
-                              if (first != std::string::npos && last != std::string::npos) {
-                                opt = opt.substr(first, last - first + 1);
-                              }
-                              ESP_LOGD("laundry_picker", "Selecting dryer option: %s (len=%d) current=%s",
-                                       opt.c_str(), (int)opt.size(), id(dryer_user_state).state.c_str());
-                          - homeassistant.service:
-                              service: input_select.select_option
-                              data:
-                                entity_id: input_select.dryer_user
-                                option: !lambda 'return id(laundry_picker_selected_option).c_str();'
-                          - homeassistant.service:
-                              service: persistent_notification.create
-                              data:
-                                title: "Laundry Screen"
-                                message: "Laundry picker OK pressed (dryer)"
-                        else:
-                          - lambda: ESP_LOGW("laundry_picker", "No options available, skipping select.");
+                        ESP_LOGD("laundry_picker", "OK -> machine=%d option='%s'",
+                                 id(laundry_picker_machine), opt.c_str());
+                    - script.execute:
+                        id: set_laundry_user
+                        machine: !lambda 'return id(laundry_picker_machine);'
+                        option: !lambda 'return id(laundry_picker_selected_option);'
               - lambda: |-
                   id(laundry_picker_active) = false;
                   id(laundry_picker_machine) = -1;
