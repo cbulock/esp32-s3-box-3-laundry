@@ -1337,25 +1337,31 @@ binary_sensor:
                            api::global_api_server->is_connected());
               - if:
                   condition:
-                    lambda: |-
+                      lambda: |-
                       int count = id(laundry_picker_machine) == 0 ? id(washer_user_options).size() : id(dryer_user_options).size();
                       return id(laundry_picker_machine) == 0 && count > 0;
                   then:
+                    - lambda: |-
+                        ESP_LOGD("laundry_picker", "Selecting washer option: %s",
+                                 id(washer_user_options)[id(laundry_picker_index)].c_str());
                     - homeassistant.service:
                         service: input_select.select_option
                         data:
                           entity_id: input_select.washer_user
-                          option: !lambda 'return id(washer_user_options)[id(laundry_picker_index)];'
+                          option: !lambda 'return id(washer_user_options)[id(laundry_picker_index)].c_str();'
                   else:
                     - if:
                         condition:
                           lambda: return id(laundry_picker_machine) == 1 && id(dryer_user_options).size() > 0;
                         then:
+                          - lambda: |-
+                              ESP_LOGD("laundry_picker", "Selecting dryer option: %s",
+                                       id(dryer_user_options)[id(laundry_picker_index)].c_str());
                           - homeassistant.service:
                               service: input_select.select_option
                               data:
                                 entity_id: input_select.dryer_user
-                                option: !lambda 'return id(dryer_user_options)[id(laundry_picker_index)];'
+                                option: !lambda 'return id(dryer_user_options)[id(laundry_picker_index)].c_str();'
                         else:
                           - lambda: ESP_LOGW("laundry_picker", "No options available, skipping select.");
               - lambda: |-
