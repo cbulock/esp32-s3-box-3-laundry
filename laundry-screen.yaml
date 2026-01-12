@@ -1365,7 +1365,12 @@ binary_sensor:
                         service: input_select.select_option
                         data:
                           entity_id: input_select.washer_user
-                          option: !lambda 'return id(laundry_picker_selected_option);'
+                          option: !lambda 'return id(laundry_picker_selected_option).c_str();'
+                    - homeassistant.service:
+                        service: logbook.log
+                        data:
+                          name: "Laundry Screen"
+                          message: !lambda 'return std::string("Washer set to ") + id(laundry_picker_selected_option);'
                   else:
                     - if:
                         condition:
@@ -1385,7 +1390,12 @@ binary_sensor:
                               service: input_select.select_option
                               data:
                                 entity_id: input_select.dryer_user
-                                option: !lambda 'return id(laundry_picker_selected_option);'
+                                option: !lambda 'return id(laundry_picker_selected_option).c_str();'
+                          - homeassistant.service:
+                              service: logbook.log
+                              data:
+                                name: "Laundry Screen"
+                                message: !lambda 'return std::string("Dryer set to ") + id(laundry_picker_selected_option);'
                         else:
                           - lambda: ESP_LOGW("laundry_picker", "No options available, skipping select.");
               - lambda: |-
