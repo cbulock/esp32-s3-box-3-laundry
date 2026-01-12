@@ -84,6 +84,8 @@ api:
   on_client_disconnected:
     - component.update: s3_box_lcd
 
+homeassistant:
+
 captive_portal:
 
 wifi:
@@ -1370,7 +1372,7 @@ binary_sensor:
                         service: logbook.log
                         data:
                           name: "Laundry Screen"
-                          message: !lambda 'return std::string("Washer set to ") + id(laundry_picker_selected_option);'
+                          message: "Laundry picker OK pressed (washer)"
                   else:
                     - if:
                         condition:
@@ -1395,7 +1397,7 @@ binary_sensor:
                               service: logbook.log
                               data:
                                 name: "Laundry Screen"
-                                message: !lambda 'return std::string("Dryer set to ") + id(laundry_picker_selected_option);'
+                                message: "Laundry picker OK pressed (dryer)"
                         else:
                           - lambda: ESP_LOGW("laundry_picker", "No options available, skipping select.");
               - lambda: |-
