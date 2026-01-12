@@ -561,6 +561,7 @@ text_sensor:
             options.push_back(token.substr(first, last - first + 1));
           }
           id(washer_user_options) = options;
+          ESP_LOGD("laundry_picker", "Washer options updated: %d", (int)options.size());
   - platform: homeassistant
     id: dryer_user_state
     entity_id: input_select.dryer_user
@@ -614,6 +615,7 @@ text_sensor:
             options.push_back(token.substr(first, last - first + 1));
           }
           id(dryer_user_options) = options;
+          ESP_LOGD("laundry_picker", "Dryer options updated: %d", (int)options.size());
   - platform: homeassistant
     id: washer_machine_state
     entity_id: sensor.washer_machine_state
@@ -867,6 +869,10 @@ globals:
     type: int
     restore_value: false
     initial_value: '0'
+  - id: laundry_picker_selected_option
+    type: std::string
+    restore_value: false
+    initial_value: ""
   - id: washer_user_options
     type: std::vector<std::string>
     restore_value: false
@@ -1279,6 +1285,8 @@ binary_sensor:
                   if (count > 0) {
                     id(laundry_picker_index) = (id(laundry_picker_index) - 1 + count) % count;
                   }
+                  ESP_LOGD("laundry_picker", "UP pressed, index=%d count=%d",
+                           id(laundry_picker_index), count);
               - component.update: s3_box_lcd
   - id: ts_laundry_picker_down
     platform: touchscreen
@@ -1298,6 +1306,8 @@ binary_sensor:
                   if (count > 0) {
                     id(laundry_picker_index) = (id(laundry_picker_index) + 1) % count;
                   }
+                  ESP_LOGD("laundry_picker", "DOWN pressed, index=%d count=%d",
+                           id(laundry_picker_index), count);
               - component.update: s3_box_lcd
   - id: ts_laundry_picker_cancel
     platform: touchscreen
@@ -1342,26 +1352,40 @@ binary_sensor:
                       return id(laundry_picker_machine) == 0 && count > 0;
                   then:
                     - lambda: |-
-                        ESP_LOGD("laundry_picker", "Selecting washer option: %s",
-                                 id(washer_user_options)[id(laundry_picker_index)].c_str());
+                        id(laundry_picker_selected_option) = id(washer_user_options)[id(laundry_picker_index)];
+                        auto &opt = id(laundry_picker_selected_option);
+                        size_t first = opt.find_first_not_of(' ');
+                        size_t last = opt.find_last_not_of(' ');
+                        if (first != std::string::npos && last != std::string::npos) {
+                          opt = opt.substr(first, last - first + 1);
+                        }
+                        ESP_LOGD("laundry_picker", "Selecting washer option: %s (len=%d) current=%s",
+                                 opt.c_str(), (int)opt.size(), id(washer_user_state).state.c_str());
                     - homeassistant.service:
                         service: input_select.select_option
                         data:
                           entity_id: input_select.washer_user
-                          option: !lambda 'return id(washer_user_options)[id(laundry_picker_index)].c_str();'
+                          option: !lambda 'return id(laundry_picker_selected_option);'
                   else:
                     - if:
                         condition:
                           lambda: return id(laundry_picker_machine) == 1 && id(dryer_user_options).size() > 0;
                         then:
                           - lambda: |-
-                              ESP_LOGD("laundry_picker", "Selecting dryer option: %s",
-                                       id(dryer_user_options)[id(laundry_picker_index)].c_str());
+                              id(laundry_picker_selected_option) = id(dryer_user_options)[id(laundry_picker_index)];
+                              auto &opt = id(laundry_picker_selected_option);
+                              size_t first = opt.find_first_not_of(' ');
+                              size_t last = opt.find_last_not_of(' ');
+                              if (first != std::string::npos && last != std::string::npos) {
+                                opt = opt.substr(first, last - first + 1);
+                              }
+                              ESP_LOGD("laundry_picker", "Selecting dryer option: %s (len=%d) current=%s",
+                                       opt.c_str(), (int)opt.size(), id(dryer_user_state).state.c_str());
                           - homeassistant.service:
                               service: input_select.select_option
                               data:
                                 entity_id: input_select.dryer_user
-                                option: !lambda 'return id(dryer_user_options)[id(laundry_picker_index)].c_str();'
+                                option: !lambda 'return id(laundry_picker_selected_option);'
                         else:
                           - lambda: ESP_LOGW("laundry_picker", "No options available, skipping select.");
               - lambda: |-
