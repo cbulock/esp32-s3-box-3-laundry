@@ -513,9 +513,107 @@ text_sensor:
     entity_id: input_select.washer_user
     internal: true
   - platform: homeassistant
+    id: washer_user_options_state
+    entity_id: input_select.washer_user
+    attribute: options
+    internal: true
+    on_value:
+      - lambda: |-
+          std::string s = x;
+          std::vector<std::string> options;
+          for (char &c : s) {
+            if (c == '\n' || c == '\r') {
+              c = ' ';
+            }
+          }
+          size_t start = s.find('[');
+          size_t end = s.rfind(']');
+          if (start != std::string::npos && end != std::string::npos && end > start) {
+            s = s.substr(start + 1, end - start - 1);
+          }
+          std::string token;
+          bool in_quote = false;
+          char quote_char = 0;
+          for (char c : s) {
+            if (!in_quote && (c == '\'' || c == '"')) {
+              in_quote = true;
+              quote_char = c;
+              continue;
+            }
+            if (in_quote && c == quote_char) {
+              in_quote = false;
+              continue;
+            }
+            if (!in_quote && c == ',') {
+              size_t first = token.find_first_not_of(' ');
+              size_t last = token.find_last_not_of(' ');
+              if (first != std::string::npos && last != std::string::npos) {
+                options.push_back(token.substr(first, last - first + 1));
+              }
+              token.clear();
+              continue;
+            }
+            token += c;
+          }
+          size_t first = token.find_first_not_of(' ');
+          size_t last = token.find_last_not_of(' ');
+          if (first != std::string::npos && last != std::string::npos) {
+            options.push_back(token.substr(first, last - first + 1));
+          }
+          id(washer_user_options) = options;
+  - platform: homeassistant
     id: dryer_user_state
     entity_id: input_select.dryer_user
     internal: true
+  - platform: homeassistant
+    id: dryer_user_options_state
+    entity_id: input_select.dryer_user
+    attribute: options
+    internal: true
+    on_value:
+      - lambda: |-
+          std::string s = x;
+          std::vector<std::string> options;
+          for (char &c : s) {
+            if (c == '\n' || c == '\r') {
+              c = ' ';
+            }
+          }
+          size_t start = s.find('[');
+          size_t end = s.rfind(']');
+          if (start != std::string::npos && end != std::string::npos && end > start) {
+            s = s.substr(start + 1, end - start - 1);
+          }
+          std::string token;
+          bool in_quote = false;
+          char quote_char = 0;
+          for (char c : s) {
+            if (!in_quote && (c == '\'' || c == '"')) {
+              in_quote = true;
+              quote_char = c;
+              continue;
+            }
+            if (in_quote && c == quote_char) {
+              in_quote = false;
+              continue;
+            }
+            if (!in_quote && c == ',') {
+              size_t first = token.find_first_not_of(' ');
+              size_t last = token.find_last_not_of(' ');
+              if (first != std::string::npos && last != std::string::npos) {
+                options.push_back(token.substr(first, last - first + 1));
+              }
+              token.clear();
+              continue;
+            }
+            token += c;
+          }
+          size_t first = token.find_first_not_of(' ');
+          size_t last = token.find_last_not_of(' ');
+          if (first != std::string::npos && last != std::string::npos) {
+            options.push_back(token.substr(first, last - first + 1));
+          }
+          id(dryer_user_options) = options;
   - platform: homeassistant
     id: washer_machine_state
     entity_id: sensor.washer_machine_state
@@ -757,6 +855,24 @@ globals:
     type: bool
     restore_value: false
     initial_value: 'false'
+  - id: laundry_picker_active
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: laundry_picker_machine
+    type: int
+    restore_value: false
+    initial_value: '-1'
+  - id: laundry_picker_index
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: washer_user_options
+    type: std::vector<std::string>
+    restore_value: false
+  - id: dryer_user_options
+    type: std::vector<std::string>
+    restore_value: false
 
 script:
   - id: box_initialize
@@ -1105,12 +1221,19 @@ binary_sensor:
       then:
         - if:
             condition:
-              lambda: return id(app_state) == ${APP_STATE_LAUNDRY};
+              lambda: return id(app_state) == ${APP_STATE_LAUNDRY} && !id(laundry_picker_active);
             then:
-              - homeassistant.service:
-                  service: input_select.select_next
-                  data:
-                    entity_id: input_select.washer_user
+              - lambda: |-
+                  id(laundry_picker_active) = true;
+                  id(laundry_picker_machine) = 0;
+                  id(nav_lock) = true;
+                  id(laundry_picker_index) = 0;
+                  for (size_t i = 0; i < id(washer_user_options).size(); i++) {
+                    if (id(washer_user_options)[i] == id(washer_user_state).state) {
+                      id(laundry_picker_index) = i;
+                      break;
+                    }
+                  }
               - component.update: s3_box_lcd
   # Laundry dryer user button
   - id: ts_laundry_dryer_user_button
@@ -1124,12 +1247,108 @@ binary_sensor:
       then:
         - if:
             condition:
-              lambda: return id(app_state) == ${APP_STATE_LAUNDRY};
+              lambda: return id(app_state) == ${APP_STATE_LAUNDRY} && !id(laundry_picker_active);
             then:
-              - homeassistant.service:
-                  service: input_select.select_next
-                  data:
-                    entity_id: input_select.dryer_user
+              - lambda: |-
+                  id(laundry_picker_active) = true;
+                  id(laundry_picker_machine) = 1;
+                  id(nav_lock) = true;
+                  id(laundry_picker_index) = 0;
+                  for (size_t i = 0; i < id(dryer_user_options).size(); i++) {
+                    if (id(dryer_user_options)[i] == id(dryer_user_state).state) {
+                      id(laundry_picker_index) = i;
+                      break;
+                    }
+                  }
+              - component.update: s3_box_lcd
+  - id: ts_laundry_picker_up
+    platform: touchscreen
+    internal: true
+    x_min: 235
+    x_max: 285
+    y_min: 70
+    y_max: 100
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: return id(laundry_picker_active);
+            then:
+              - lambda: |-
+                  int count = id(laundry_picker_machine) == 0 ? id(washer_user_options).size() : id(dryer_user_options).size();
+                  if (count > 0) {
+                    id(laundry_picker_index) = (id(laundry_picker_index) - 1 + count) % count;
+                  }
+              - component.update: s3_box_lcd
+  - id: ts_laundry_picker_down
+    platform: touchscreen
+    internal: true
+    x_min: 235
+    x_max: 285
+    y_min: 120
+    y_max: 150
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: return id(laundry_picker_active);
+            then:
+              - lambda: |-
+                  int count = id(laundry_picker_machine) == 0 ? id(washer_user_options).size() : id(dryer_user_options).size();
+                  if (count > 0) {
+                    id(laundry_picker_index) = (id(laundry_picker_index) + 1) % count;
+                  }
+              - component.update: s3_box_lcd
+  - id: ts_laundry_picker_cancel
+    platform: touchscreen
+    internal: true
+    x_min: 50
+    x_max: 140
+    y_min: 170
+    y_max: 200
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: return id(laundry_picker_active);
+            then:
+              - lambda: |-
+                  id(laundry_picker_active) = false;
+                  id(laundry_picker_machine) = -1;
+                  id(nav_lock) = false;
+              - component.update: s3_box_lcd
+  - id: ts_laundry_picker_ok
+    platform: touchscreen
+    internal: true
+    x_min: 180
+    x_max: 270
+    y_min: 170
+    y_max: 200
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: return id(laundry_picker_active);
+            then:
+              - if:
+                  condition:
+                    lambda: return id(laundry_picker_machine) == 0;
+                  then:
+                    - homeassistant.service:
+                        service: input_select.select_option
+                        data:
+                          entity_id: input_select.washer_user
+                          option: !lambda 'return id(washer_user_options)[id(laundry_picker_index)];'
+                  else:
+                    - homeassistant.service:
+                        service: input_select.select_option
+                        data:
+                          entity_id: input_select.dryer_user
+                          option: !lambda 'return id(dryer_user_options)[id(laundry_picker_index)];'
+              - lambda: |-
+                  id(laundry_picker_active) = false;
+                  id(laundry_picker_machine) = -1;
+                  id(nav_lock) = false;
               - component.update: s3_box_lcd
   # Touchscreen ir memory button 1
   - id: ts_ir_memory_1_button
@@ -2014,6 +2233,52 @@ display:
                        id(dryer_completion_time).has_state(),
                        id(dryer_completion_time).state,
                        id(dryer_user_state).state);
+
+          if (id(laundry_picker_active)) {
+            int mx = 30;
+            int my = 30;
+            int mw = 260;
+            int mh = 170;
+            it.filled_rectangle(mx, my, mw, mh, grey_dark);
+            it.rectangle(mx, my, mw, mh, blue_light);
+
+            const char *title = (id(laundry_picker_machine) == 0) ? "Select Washer User" : "Select Dryer User";
+            it.print(mx + (mw / 2), my + 6, id(font_medium), white, TextAlign::TOP_CENTER, title);
+
+            const auto &options = (id(laundry_picker_machine) == 0) ? id(washer_user_options) : id(dryer_user_options);
+            int count = options.size();
+            int visible = 5;
+            int start = 0;
+            if (count > visible) {
+              start = id(laundry_picker_index) - (visible / 2);
+              if (start < 0) {
+                start = 0;
+              } else if (start > (count - visible)) {
+                start = count - visible;
+              }
+            }
+
+            int list_y = my + 40;
+            for (int i = 0; i < visible; i++) {
+              int idx = start + i;
+              if (idx >= count) {
+                break;
+              }
+              int row_y = list_y + (i * 22);
+              if (idx == id(laundry_picker_index)) {
+                it.filled_rectangle(mx + 10, row_y - 2, mw - 20, 20, blue_dark);
+              }
+              it.print(mx + 15, row_y, id(font_small), white, options[idx].c_str());
+            }
+
+            it.print(mx + mw - 35, my + 40, id(font_small), white, TextAlign::TOP_CENTER, "UP");
+            it.print(mx + mw - 35, my + 90, id(font_small), white, TextAlign::TOP_CENTER, "DOWN");
+
+            it.filled_rectangle(mx + 15, my + mh - 30, 90, 22, blue_dark);
+            it.print(mx + 60, my + mh - 26, id(font_small), white, TextAlign::TOP_CENTER, "Cancel");
+            it.filled_rectangle(mx + mw - 105, my + mh - 30, 90, 22, blue_dark);
+            it.print(mx + mw - 60, my + mh - 26, id(font_small), white, TextAlign::TOP_CENTER, "OK");
+          }
 
       - id: ir_learn_page
         lambda: |-
