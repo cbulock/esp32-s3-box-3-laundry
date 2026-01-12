@@ -84,8 +84,6 @@ api:
   on_client_disconnected:
     - component.update: s3_box_lcd
 
-homeassistant:
-
 captive_portal:
 
 wifi:
