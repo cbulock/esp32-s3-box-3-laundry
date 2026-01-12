@@ -1337,7 +1337,7 @@ binary_sensor:
                            api::global_api_server->is_connected());
               - if:
                   condition:
-                      lambda: |-
+                    lambda: |-
                       int count = id(laundry_picker_machine) == 0 ? id(washer_user_options).size() : id(dryer_user_options).size();
                       return id(laundry_picker_machine) == 0 && count > 0;
                   then:
